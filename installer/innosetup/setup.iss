@@ -8,6 +8,7 @@
 #define ReleaseDir "..\..\src\Greenshot\bin\ARM64\Release\net472"
 #define PluginDirARM64 "..\..\src\Greenshot\bin\ARM64\Release\net472\Plugins"
 #define PluginDir "..\..\src\Greenshot\bin\Release\net472\Plugins"
+#define CertumThumbprint GetEnv('CertumThumbprint')
 
 ; Include the scripts to install .NET Framework
 ; See https://www.codeproject.com/KB/install/dotnetfx_innosetup_instal.aspx
@@ -127,21 +128,27 @@ AppVersion={#Version}
 ArchitecturesInstallIn64BitMode=x64
 Compression=lzma2/ultra64
 SolidCompression=yes
-DefaultDirName={code:DefDirRoot}\{#ExeName}
+DefaultDirName={autopf}\{#ExeName}
 DefaultGroupName={#ExeName}
 InfoBeforeFile=..\additional_files\readme.txt
 LicenseFile=..\additional_files\license.txt
 LanguageDetectionMethod=uilanguage
 MinVersion=6.1sp1
-OutputBaseFilename={#ExeName}-INSTALLER-{#Version}-UNSTABLE
 OutputDir=..\
+; user may choose between all-users vs. current-user installation in a dialog or by using the /ALLUSERS flag (on the command line)
+; in registry section, HKA will take care of the appropriate root key (HKLM vs. HKCU), see https://jrsoftware.org/ishelp/index.php?topic=admininstallmode
+PrivilegesRequiredOverridesAllowed=dialog
+; admin privileges not required, unless user chooses all-users installation
+; the installer will ask for elevation if needed
 PrivilegesRequired=lowest
 SetupIconFile=..\..\src\Greenshot\icons\applicationIcon\icon.ico
-; Create a SHA1 signature
-; SignTool=SignTool sign /debug /fd sha1 /tr https://time.certum.pl /td sha1 $f
-; Append a SHA256 to the previous SHA1 signature (this is what as does)
-; SignTool=SignTool sign /debug /as /fd sha256 /tr https://time.certum.pl /td sha256 $f
-; SignedUninstaller=yes
+#if CertumThumbprint  != ""
+ OutputBaseFilename={#ExeName}-INSTALLER-{#Version}-UNSTABLE
+  SignTool=SignTool sign /sha1 "{#CertumThumbprint}" /tr http://time.certum.pl /td sha256 /fd sha256 /v $f
+  SignedUninstaller=yes
+#else
+  OutputBaseFilename={#ExeName}-INSTALLER-{#Version}-UNSTABLE-UNSIGNED
+#endif
 UninstallDisplayIcon={app}\{#ExeName}.exe
 Uninstallable=true
 VersionInfoCompany={#ExeName}
@@ -153,6 +160,7 @@ VersionInfoVersion={#Version}
 WizardImageFile=installer-large.bmp
 ; Reference a bitmap, max size 55x58
 WizardSmallImageFile=installer-small.bmp
+
 [Registry]
 ; Delete all startup entries, so we don't have leftover values
 Root: HKCU; Subkey: Software\Microsoft\Windows\CurrentVersion\Run; ValueType: none; ValueName: {#ExeName}; Flags: deletevalue noerror;
@@ -171,24 +179,16 @@ Root: HKLM; Subkey: Software\Classes\.greenshot; ValueType: none; ValueName: {#E
 Root: HKLM; Subkey: Software\Classes\Greenshot; ValueType: none; ValueName: {#ExeName}; Flags: deletevalue noerror;
 
 ; Create the startup entries if requested to do so
-; HKEY_LOCAL_USER - for current user only
-Root: HKCU; Subkey: Software\Microsoft\Windows\CurrentVersion\Run; ValueType: string; ValueName: {#ExeName}; ValueData: """{app}\{#ExeName}.exe"""; Permissions: users-modify; Flags: uninsdeletevalue noerror; Tasks: startup; Check: IsRegularUser
-; HKEY_LOCAL_MACHINE - for all users when admin
-Root: HKLM; Subkey: Software\Microsoft\Windows\CurrentVersion\Run; ValueType: string; ValueName: {#ExeName}; ValueData: """{app}\{#ExeName}.exe"""; Permissions: admins-modify; Flags: uninsdeletevalue noerror; Tasks: startup; Check: not IsRegularUser
+Root: HKA; Subkey: Software\Microsoft\Windows\CurrentVersion\Run; ValueType: string; ValueName: {#ExeName}; ValueData: """{app}\{#ExeName}.exe"""; Flags: uninsdeletevalue noerror; Tasks: startup
 
 ; Register our own filetype for all users
-; HKEY_LOCAL_USER - for current user only
-Root: HKCU; Subkey: Software\Classes\.greenshot; ValueType: string; ValueName: ""; ValueData: "Greenshot"; Permissions: users-modify; Flags: uninsdeletevalue noerror; Check: IsRegularUser
-Root: HKCU; Subkey: Software\Classes\Greenshot; ValueType: string; ValueName: ""; ValueData: "Greenshot File"; Permissions: users-modify; Flags: uninsdeletevalue noerror; Check: IsRegularUser
-Root: HKCU; Subkey: Software\Classes\Greenshot\DefaultIcon; ValueType: string; ValueName: ""; ValueData: """{app}\Greenshot.EXE,0"""; Permissions: users-modify; Flags: uninsdeletevalue noerror; Check: IsRegularUser
-Root: HKCU; Subkey: Software\Classes\Greenshot\shell\open\command; ValueType: string; ValueName: ""; ValueData: """{app}\Greenshot.EXE"" --openfile ""%1"""; Permissions: users-modify; Flags: uninsdeletevalue noerror; Check: IsRegularUser
+Root: HKA; Subkey: Software\Classes\.greenshot; ValueType: string; ValueName: ""; ValueData: "Greenshot"; Flags: uninsdeletevalue noerror
+Root: HKA; Subkey: Software\Classes\Greenshot; ValueType: string; ValueName: ""; ValueData: "Greenshot File"; Flags: uninsdeletevalue noerror
+Root: HKA; Subkey: Software\Classes\Greenshot\DefaultIcon; ValueType: string; ValueName: ""; ValueData: """{app}\Greenshot.EXE,0"""; Flags: uninsdeletevalue noerror
+Root: HKA; Subkey: Software\Classes\Greenshot\shell\open\command; ValueType: string; ValueName: ""; ValueData: """{app}\Greenshot.EXE"" --openfile ""%1"""; Flags: uninsdeletevalue noerror
+
 ; Disable the default PRTSCR Snipping Tool in Windows 11
 Root: HKCU; Subkey: Control Panel\Keyboard; ValueType: dword; ValueName: "PrintScreenKeyForSnippingEnabled"; ValueData: "0"; Flags: uninsdeletevalue; Check: ShouldDisableSnippingTool
-; HKEY_LOCAL_MACHINE - for all users when admin
-Root: HKLM; Subkey: Software\Classes\.greenshot; ValueType: string; ValueName: ""; ValueData: "Greenshot"; Permissions: admins-modify; Flags: uninsdeletevalue noerror; Check: not IsRegularUser
-Root: HKLM; Subkey: Software\Classes\Greenshot; ValueType: string; ValueName: ""; ValueData: "Greenshot File"; Permissions: admins-modify; Flags: uninsdeletevalue noerror; Check: not IsRegularUser
-Root: HKLM; Subkey: Software\Classes\Greenshot\DefaultIcon; ValueType: string; ValueName: ""; ValueData: """{app}\Greenshot.EXE,0"""; Permissions: admins-modify; Flags: uninsdeletevalue noerror; Check: not IsRegularUser
-Root: HKLM; Subkey: Software\Classes\Greenshot\shell\open\command; ValueType: string; ValueName: ""; ValueData: """{app}\Greenshot.EXE"" --openfile ""%1"""; Permissions: admins-modify; Flags: uninsdeletevalue noerror; Check: not IsRegularUser
 
 [Icons]
 Name: {group}\{#ExeName}; Filename: {app}\{#ExeName}.exe; WorkingDir: {app}; AppUserModelID: "{#ExeName}"
@@ -539,22 +539,6 @@ Name: "languages\zhCN"; Description: {cm:zhCN}; Types: full custom; Flags: disab
 Name: "languages\zhTW"; Description: {cm:zhTW}; Types: full custom; Flags: disablenouninstallwarning; Check: hasLanguageGroup('9')
 
 [Code]
-// Do we have a regular user trying to install this?
-function IsRegularUser(): Boolean;
-begin
-	Result := not (IsAdmin or IsAdminInstallMode);
-end;
-
-// The following code is used to select the installation path, this is localappdata if non poweruser
-function DefDirRoot(Param: String): String;
-begin
-	if IsRegularUser then
-		Result := ExpandConstant('{localappdata}')
-	else
-		Result := ExpandConstant('{pf}')
-end;
-
-
 function FullInstall(Param : String) : String;
 begin
 	result := SetupMessage(msgFullInstallation);
@@ -770,4 +754,35 @@ Filename: "{app}\{#ExeName}.exe"; Description: "{cm:startgreenshot}"; Parameters
 Filename: "https://getgreenshot.org/thank-you/?language={language}&version={#Version}"; Flags: shellexec runasoriginaluser
 
 [InstallDelete]
+// processed as the first step of installation.
+// Delete plugins from Greenshot 1.2
+Type: filesandordirs; Name: "{app}\Plugins\GreenshotBoxPlugin"
+Type: filesandordirs; Name: "{app}\Plugins\GreenshotConfluencePlugin"
+Type: filesandordirs; Name: "{app}\Plugins\GreenshotDropboxPlugin"
+Type: filesandordirs; Name: "{app}\Plugins\GreenshotExternalCommandPlugin"
+Type: filesandordirs; Name: "{app}\Plugins\GreenshotFlickrPlugin"
+Type: filesandordirs; Name: "{app}\Plugins\GreenshotImgurPlugin"
+Type: filesandordirs; Name: "{app}\Plugins\GreenshotJiraPlugin"
+Type: filesandordirs; Name: "{app}\Plugins\GreenshotOCRPlugin"
+Type: filesandordirs; Name: "{app}\Plugins\GreenshotOfficePlugin"
+Type: filesandordirs; Name: "{app}\Plugins\GreenshotPhotobucketPlugin"
+Type: filesandordirs; Name: "{app}\Plugins\GreenshotPicasaPlugin"
+
+// Newer 1.3 plugins
+Type: filesandordirs; Name: "{app}\Plugins\Greenshot.Plugin.Box"
+Type: filesandordirs; Name: "{app}\Plugins\Greenshot.Plugin.Confluence"
+Type: filesandordirs; Name: "{app}\Plugins\Greenshot.Plugin.Dropbox"
+Type: filesandordirs; Name: "{app}\Plugins\Greenshot.Plugin.ExternalCommand"
+Type: filesandordirs; Name: "{app}\Plugins\Greenshot.Plugin.Flickr"
+Type: filesandordirs; Name: "{app}\Plugins\Greenshot.Plugin.GooglePhotos"
+Type: filesandordirs; Name: "{app}\Plugins\Greenshot.Plugin.Imgur"
+Type: filesandordirs; Name: "{app}\Plugins\Greenshot.Plugin.Jira"
+Type: filesandordirs; Name: "{app}\Plugins\Greenshot.Plugin.Office"
+Type: filesandordirs; Name: "{app}\Plugins\Greenshot.Plugin.Photobucket"
+Type: filesandordirs; Name: "{app}\Plugins\Greenshot.Plugin.Win10"
+
+// Cleanup directory if there are no plugins left
+Name: {app}\Plugins; Type: dirifempty;
+
+// Cleanup the main directory if there are no files left
 Name: {app}; Type: dirifempty;

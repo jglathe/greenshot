@@ -193,7 +193,7 @@ namespace Greenshot.Editor.Forms
                 _ => false
             };
 
-            if (useBestFit)
+            if (useBestFit && EditorConfiguration.UseBestFit)
             {
                 ZoomBestFitMenuItemClick(this, EventArgs.Empty);
             }
@@ -1023,6 +1023,9 @@ namespace Greenshot.Editor.Forms
                     case Keys.C:
                         BtnCropClick(sender, e);
                         break;
+                    case Keys.Z:
+                        BtnResizeClick(sender, e);
+                        break;
                 }
             }
             else if (e.Modifiers.Equals(Keys.Control))
@@ -1672,7 +1675,7 @@ namespace Greenshot.Editor.Forms
 
         private void AddBorderToolStripMenuItemClick(object sender, EventArgs e)
         {
-            _surface.ApplyBitmapEffect(new BorderEffect());
+            _surface.ApplyBitmapEffect(EditorConfiguration.BorderEffectSettings);
             UpdateUndoRedoSurfaceDependencies();
         }
 
